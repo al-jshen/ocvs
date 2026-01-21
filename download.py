@@ -12,15 +12,15 @@ def main(args):
             "hb": ("phot/phot", ["hb.dat"]),
             "lpv": ("phot_ogle4", ["Miras.dat"]),
             "rot": ("phot_ogle4", ["rot.dat"]),
-            "rrlyr": ("phot", ["RRa.dat", "RRb.dat", "RRd.dat"]),
+            "rrlyr": ("phot", ["RRab.dat", "RRc.dat", "RRd.dat"]),
             "t2cep": ("phot", ["t2cep.dat"]),
         },
         "gal": {"acep": ("phot", ["acepF.dat", "acep1O.dat"])},
         "gd": {
             "cep": ("phot", ["cepF.dat", "cep1O.dat"]),
             "dsct": ("phot_ogle4", ["dsct.dat"]),
-            "lpv": ("phot_ogle4", ["lpv.dat"]),
-            "rrlyr": ("phot", ["RRa.dat", "RRb.dat"]),
+            "lpv": ("phot_ogle4", ["Miras.dat"]),
+            "rrlyr": ("phot", ["RRab.dat", "RRc.dat", "RRd.dat"]),
             "t2cep": ("phot", ["t2cep.dat"]),
         },
         "lmc": {
@@ -29,7 +29,7 @@ def main(args):
             "dsct": ("phot", ["dsct.dat"]),
             "ecl": ("phot", ["ecl.dat", "ell.dat"]),
             "hb": ("phot/phot", ["hb.dat"]),
-            "rrlyr": ("phot", ["RRa.dat", "RRb.dat", "RRd.dat"]),
+            "rrlyr": ("phot", ["RRab.dat", "RRc.dat", "RRd.dat"]),
             "t2cep": ("phot", ["t2cep.dat"]),
         },
         "smc": {
@@ -38,7 +38,7 @@ def main(args):
             "dsct": ("phot", ["dsct.dat"]),
             "ecl": ("phot", ["ecl.dat", "ell.dat"]),
             "hb": ("phot/phot", ["hb.dat"]),
-            "rrlyr": ("phot", ["RRa.dat", "RRb.dat", "RRd.dat"]),
+            "rrlyr": ("phot", ["RRab.dat", "RRc.dat", "RRd.dat"]),
             "t2cep": ("phot", ["t2cep.dat"]),
         },
     }
