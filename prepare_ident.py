@@ -117,6 +117,9 @@ def main(args):
     # merge the ident and period DataFrames on the 'id' column
     full_df = ident_df.merge(period_df, on="id", how="inner")
 
+    # make sure period col is float
+    full_df["period"] = pd.to_numeric(full_df["period"], errors="coerce")
+
     # save the concatenated DataFrame to a new file
     # using the path specified in the args
     # if the path does not exist, create it
