@@ -1,5 +1,6 @@
 import numpy as np
 from numba import njit
+from scipy.stats import binned_statistic
 
 
 @njit
@@ -47,4 +48,45 @@ def normalize_folded_time(example):
     normalized_time = (folded_time - min_t) / (max_t - min_t)
     # overwrite
     example["folded_time"] = normalized_time.astype(np.float32)
+    return example
+
+
+def bin_data(example, num_bins=50):
+    """
+    Bins phase-folded data into equal-width intervals.
+
+    Parameters:
+    - example: A dictionary containing "folded_time", "flux", and "period".
+    - num_bins: How many bins to divide the period into.
+
+    Returns:
+    - Updated example with "bin_centers", "bin_means", and "bin_errors".
+    """
+    folded_time = example["folded_time"]
+    flux = example["flux"]
+    period = example["period"]
+
+    # 1. Define the bins from 0 to the period
+    bin_edges = np.linspace(0, period, num_bins + 1)
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+    # 2. Calculate the mean flux in each bin
+    bin_means, _, _ = binned_statistic(
+        folded_time, flux, statistic="mean", bins=bin_edges
+    )
+
+    # 3. Calculate standard deviation/error for error bars
+    bin_stds, _, _ = binned_statistic(
+        folded_time, flux, statistic="std", bins=bin_edges
+    )
+    bin_counts, _, _ = binned_statistic(
+        folded_time, flux, statistic="count", bins=bin_edges
+    )
+    bin_errors = bin_stds / np.sqrt(bin_counts)
+
+    # Update example with binned data
+    example["bin_centers"] = bin_centers.astype(np.float32)
+    example["bin_means"] = bin_means.astype(np.float32)
+    example["bin_errors"] = bin_errors.astype(np.float32)
+
     return example
