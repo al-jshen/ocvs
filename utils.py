@@ -90,3 +90,34 @@ def bin_data(example, num_bins=50):
     example["bin_errors"] = bin_errors.astype(np.float32)
 
     return example
+
+
+def to_generator(ds):
+    """Convert from HF dataset to generator."""
+
+    for i in range(len(ds)):
+        sample_data = ds[i]
+
+        # Create aligned data (time series)
+        aligned_data = {
+            "time": sample_data["time"],
+            "flux": sample_data["flux"],
+            "flux_err": sample_data["flux_err"],
+            "istd": sample_data["istd"],
+            "ivar": sample_data["ivar"],
+            "mask": sample_data["mask"],
+            "folded_time": sample_data["folded_time"],
+            "norm_flux": sample_data["norm_flux"],
+        }
+
+        # Create metadata
+        meta_data = {
+            "ra": sample_data["ra"],
+            "dec": sample_data["dec"],
+            "notes": sample_data["notes"],
+            "variable_type": sample_data["variable_type"],
+            "period": sample_data["period"],
+            "period_err": sample_data["period_err"],
+        }
+
+        yield {"id": str(sample_data["id"]), "aligned": aligned_data, "meta": meta_data}
