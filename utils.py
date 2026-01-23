@@ -103,9 +103,9 @@ def to_generator(ds):
             "time": sample_data["time"],
             "flux": sample_data["flux"],
             "flux_err": sample_data["flux_err"],
-            "istd": sample_data["istd"],
-            "ivar": sample_data["ivar"],
-            "mask": sample_data["mask"],
+            # "istd": sample_data["istd"],
+            # "ivar": sample_data["ivar"],
+            # "mask": sample_data["mask"],
             "folded_time": sample_data["folded_time"],
             "norm_flux": sample_data["norm_flux"],
         }
