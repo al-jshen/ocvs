@@ -1,3 +1,5 @@
+from datasets import load_dataset
+from functools import partial
 import numpy as np
 from numba import njit
 from scipy.stats import binned_statistic
@@ -56,31 +58,28 @@ def bin_data(example, num_bins=50):
     Bins phase-folded data into equal-width intervals.
 
     Parameters:
-    - example: A dictionary containing "folded_time", "flux", and "period".
+    - example: A dictionary containing "time", "flux", and "period".
     - num_bins: How many bins to divide the period into.
 
     Returns:
     - Updated example with "bin_centers", "bin_means", and "bin_errors".
     """
-    folded_time = example["folded_time"]
+    time = example["time"]
     flux = example["flux"]
     period = example["period"]
 
-    # 1. Define the bins from 0 to the period
-    bin_edges = np.linspace(0, period, num_bins + 1)
+    bin_edges = np.linspace(0, 1., num_bins + 1)
     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
 
-    # 2. Calculate the mean flux in each bin
     bin_means, _, _ = binned_statistic(
-        folded_time, flux, statistic="mean", bins=bin_edges
+        time, flux, statistic="mean", bins=num_bins, range=(0, 1)
     )
 
-    # 3. Calculate standard deviation/error for error bars
     bin_stds, _, _ = binned_statistic(
-        folded_time, flux, statistic="std", bins=bin_edges
+        time, flux, statistic="std", bins=num_bins, range=(0, 1)
     )
     bin_counts, _, _ = binned_statistic(
-        folded_time, flux, statistic="count", bins=bin_edges
+        time, flux, statistic="count", bins=num_bins, range=(0, 1)
     )
     bin_errors = bin_stds / np.sqrt(bin_counts)
 
@@ -88,8 +87,18 @@ def bin_data(example, num_bins=50):
     example["bin_centers"] = bin_centers.astype(np.float32)
     example["bin_means"] = bin_means.astype(np.float32)
     example["bin_errors"] = bin_errors.astype(np.float32)
+    example["bin_counts"] = bin_counts
 
     return example
+
+
+def make_binned_version(num_bins=48, num_proc=8):
+    ds = load_dataset("j-shen/ocvs-folded", split="train", num_proc=num_proc)
+    ds = ds.map(partial(bin_data, num_bins=num_bins), num_proc=num_proc)
+    ds = ds.filter(lambda x: ~np.isnan(x['bin_means']).any(), num_proc=num_proc)
+    ds = ds.remove_columns(["flux", "time"])
+    ds = ds.rename_columns({"bin_centers": "time", "bin_means": "flux", "bin_errors": "flux_err"})
+    return ds
 
 
 def to_generator(ds):
