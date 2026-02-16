@@ -1,6 +1,8 @@
-from datasets import load_dataset
+from collections import defaultdict
 from functools import partial
+
 import numpy as np
+from datasets import concatenate_datasets, load_dataset
 from numba import njit
 from scipy.stats import binned_statistic
 
@@ -21,7 +23,7 @@ def fold_and_norm_kernel(time, flux, period):
     return folded, norm_f, cycles
 
 
-def phase_fold_batch_numba(examples):
+def phase_fold_batch_numba(examples, merge_final: bool = True):
     # Convert numpy object arrays to standard lists so Numba can iterate
     times = examples["time"]
     fluxes = examples["flux"]
@@ -39,10 +41,88 @@ def phase_fold_batch_numba(examples):
         norm_list.append(f_f.astype(np.float32))
         cycle_list.append(cyc.astype(np.int32))
 
-    examples["folded_time"] = np.array(folded_list, dtype=object)
-    examples["norm_flux"] = np.array(norm_list, dtype=object)
-    examples["cycles"] = np.array(cycle_list, dtype=object)
+    if merge_final:
+        examples["folded_time"] = np.array(folded_list, dtype=object)
+        examples["norm_flux"] = np.array(norm_list, dtype=object)
+        examples["cycles"] = np.array(cycle_list, dtype=object)
+    else:
+        examples["folded_time"] = folded_list
+        examples["norm_flux"] = norm_list
+        examples["cycles"] = cycle_list
     return examples
+
+
+def chunk(examples, min_points=20):
+
+    chunked_fields = defaultdict(list)
+    empty = True
+
+    batchsize = len(examples["id"])
+    for i in range(batchsize):
+        uniq_cycles = np.unique(examples["cycles"][i])
+        for c in uniq_cycles:
+            msk = examples["cycles"][i] == c
+            if msk.sum() >= min_points:
+                chunked_fields["time"].append(examples["time"][i][msk])
+                chunked_fields["flux"].append(examples["norm_flux"][i][msk])
+                for field in [
+                    "id",
+                    "ra",
+                    "dec",
+                    "notes",
+                    "variable_type",
+                    "period",
+                    "period_err",
+                ]:
+                    chunked_fields[field].append(examples[field][i])
+                empty = False
+
+    if empty:
+        # fill in dummy data to avoid empty batch issues
+        for field in [
+            "time",
+            "flux",
+            "id",
+            "ra",
+            "dec",
+            "notes",
+            "variable_type",
+            "period",
+            "period_err",
+        ]:
+            chunked_fields[field] = []
+    return chunked_fields
+
+
+def make_chunked_normalized_version(num_proc=8, min_pts=20, batch_size=100):
+    ds = load_dataset("j-shen/ocvs", split="train", num_proc=num_proc).with_format(
+        "numpy"
+    )
+
+    ds = ds.map(
+        partial(phase_fold_batch_numba, merge_final=False),
+        num_proc=num_proc,
+        batched=True,
+        batch_size=batch_size,
+    )
+    results = []
+
+    # process in chunks, for whatever reason this helps avoid errors...
+    for i in range(0, len(ds), 5000):
+        chunk_ds = ds.select(range(i, min(i + 5000, len(ds))))
+        results.append(
+            chunk_ds.map(
+                partial(chunk, min_points=min_pts),
+                num_proc=num_proc,
+                remove_columns=ds.column_names,
+                batched=True,
+                batch_size=batch_size,
+            )
+        )
+
+    # concat all results
+    ds = concatenate_datasets(results)
+    return ds
 
 
 def normalize_folded_time(example):
@@ -71,7 +151,7 @@ def bin_data(example, num_bins=50):
     flux = example["flux"]
     period = example["period"]
 
-    bin_edges = np.linspace(0, 1., num_bins + 1)
+    bin_edges = np.linspace(0, 1.0, num_bins + 1)
     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
 
     bin_means, _, _ = binned_statistic(
@@ -98,9 +178,11 @@ def bin_data(example, num_bins=50):
 def make_binned_version(num_bins=48, num_proc=8):
     ds = load_dataset("j-shen/ocvs-folded", split="train", num_proc=num_proc)
     ds = ds.map(partial(bin_data, num_bins=num_bins), num_proc=num_proc)
-    ds = ds.filter(lambda x: ~np.isnan(x['bin_means']).any(), num_proc=num_proc)
+    ds = ds.filter(lambda x: ~np.isnan(x["bin_means"]).any(), num_proc=num_proc)
     ds = ds.remove_columns(["flux", "time"])
-    ds = ds.rename_columns({"bin_centers": "time", "bin_means": "flux", "bin_errors": "flux_err"})
+    ds = ds.rename_columns(
+        {"bin_centers": "time", "bin_means": "flux", "bin_errors": "flux_err"}
+    )
     return ds
 
 
