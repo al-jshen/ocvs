@@ -18,7 +18,7 @@ def fold_and_norm_kernel(time, flux, period):
             # Numba's np.median is efficient
             m = np.median(flux[mask])
             norm_f[mask] = flux[mask] / m
-    return folded, norm_f
+    return folded, norm_f, cycles
 
 
 def phase_fold_batch_numba(examples):
@@ -29,16 +29,19 @@ def phase_fold_batch_numba(examples):
 
     folded_list = []
     norm_list = []
+    cycle_list = []
 
     # We call the NJIT kernel for each lightcurve
     # The loop is in Python, but the heavy math is in Numba
     for i in range(len(times)):
-        f_t, f_f = fold_and_norm_kernel(times[i], fluxes[i], periods[i])
+        f_t, f_f, cyc = fold_and_norm_kernel(times[i], fluxes[i], periods[i])
         folded_list.append(f_t.astype(np.float32))
         norm_list.append(f_f.astype(np.float32))
+        cycle_list.append(cyc.astype(np.int32))
 
     examples["folded_time"] = np.array(folded_list, dtype=object)
     examples["norm_flux"] = np.array(norm_list, dtype=object)
+    examples["cycles"] = np.array(cycle_list, dtype=object)
     return examples
 
 
